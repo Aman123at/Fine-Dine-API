@@ -27,9 +27,9 @@ const userSchema = new mongoose.Schema({
         default:'user',
         required:true
     },
-    table:{
-        type:mongoose.Schema.ObjectId,
-        ref:'Table'
+    tableNo:{
+        type:Number,
+        required:true
     },
     photo:{
         id:{

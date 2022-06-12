@@ -11,7 +11,7 @@ const tokenWithCookie = (user,res)=>{
     user.password = undefined
     if(user.role == 'manager'){
 
-        user.table=undefined
+        user.tableNo=undefined
     }
     res.status(200).cookie('token',token,cookieOpts).json({
         success:true,

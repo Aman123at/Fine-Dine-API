@@ -7,6 +7,8 @@ const cloudinary = require('cloudinary')
 
 const crypto = require('crypto')
 const tokenWithCookie = require('../utils/tokenWithCookie')
+const Table = require('../models/table')
+const { isLoggedIn } = require('../customMiddlewares/user')
 exports.signup = async (req,res,next)=>{
     let resp;
     if(req.files){
@@ -48,7 +50,8 @@ exports.signup = async (req,res,next)=>{
 
 
 exports.login = async (req,res,next)=>{
-    const {email,password} = req.body
+    const {email,password,tableNo} = req.body
+    
 
     if(!email || !password){
         res.status(400).json({
@@ -63,8 +66,34 @@ exports.login = async (req,res,next)=>{
             success:false,
             message:"User or password does not exists."
         })
+    }else{
+
+        if(user.role != 'manager'){
+            let table = await Table.findOne({tableNo:parseInt(tableNo)})
+            
+            if(table){
+                user.tableNo = table.tableNo
+                User.findByIdAndUpdate(user._id,{tableNo:table.tableNo})
+                .then((r)=>console.log(r))
+                .catch((err)=>{
+                    res.status(400).json({
+                        success:false,
+                        message:err
+                    })
+                })
+                Table.findByIdAndUpdate(table._id,{status:'occupied'})
+                .then()
+                .catch((err)=>{
+                    res.status(400).json({
+                        success:false,
+                        message:err
+                    })
+                })
+            }
+        }
+        
     }
-    
+
     const isCorrectPass = await user.validatePassword(password)
     if(!isCorrectPass){
         res.status(400).json({
@@ -76,6 +105,19 @@ exports.login = async (req,res,next)=>{
 }
 
 exports.logout = async (req,res,next)=>{
+   
+    let loggedInUser = req.user
+    Table.findOneAndUpdate({tableNo:loggedInUser.tableNo},{status:'free'}, {
+        new: true
+      })
+                .then()
+                .catch((err)=>{
+                    res.status(400).json({
+                        success:false,
+                        message:err
+                    })
+                })
+    
     res.cookie('token',null,{
         expires:new Date(Date.now()),
         httpOnly:true
@@ -89,142 +131,3 @@ exports.logout = async (req,res,next)=>{
 
 
 
-// exports.getLoggedInUserDetails = BigPromise(async (req,res,next)=>{
-//     const user = await User.findById(req.user.id)
-
-//     res.status(200).json({
-//         success:true,
-//         user
-//     })
-// })
-
-
-// exports.changePassword = BigPromise(async (req,res,next)=>{
-//     const userId = req.user.id
-
-//     const user = await User.findById(userId).select("+password")
-    
-//     const isCorrectOldPassword = await user.isValidatedPassword(req.body.oldPassword)
-
-//     if(!isCorrectOldPassword){
-//         return next(new CustomError('old password is incorrect.',400))
-//     }
-
-//     user.password = req.body.password
-
-//     await user.save()
-
-//     cookieToken(user,res)
-   
-// })
-
-
-// exports.updateUserDetails = BigPromise(async (req,res,next)=>{
-//     const userId = req.user.id
-//     if(!req.body.name || !req.body.email){
-//         return next(new CustomError('Email and name both required.',400))
-//     }
-
-//     const newData = {
-//         name:req.body.name,
-//         email:req.body.email
-//     }
-
-//     if(req.files && req.files.photo !== ''){
-//         const user = await User.findById(userId)
-//         const imageId = user.photo.id
-//         // delete photo in cloudinary
-//         const resp = await cloudinary.v2.uploader.destroy(imageId)
-//         // upload the new photo
-//         let file = req.files.photo
-//         const result = await cloudinary.v2.uploader.upload(file.tempFilePath,{
-//             folder:"users",
-//             width:150,
-//             crop:'scale'
-//         })
-
-//         newData.photo = {
-//             id:result.public_id,
-//             secure_url:result.secure_url
-//         }
-//     }
-//     const user = await User.findByIdAndUpdate(userId,newData,{
-//         new:true,
-//         runValidators:true,
-//         useFindAndModify:false
-//     })
-
-//     res.status(200).json({
-//         success:true
-//     })
-    
-    
-   
-// })
-
-
-
-// exports.adminAllUsers = BigPromise(async (req,res,next)=>{
-//     const user = await User.find({})
-//     res.status(200).json({
-//         success:true,
-//         user
-//     })
-// })
-// exports.admingetOneUser = BigPromise(async (req,res,next)=>{
-//     const {id} = req.params
-//     const user = await User.findById(id)
-//     if(!user){
-//         return next(new CustomError('No user found',400))
-//     }
-//     res.status(200).json({
-//         success:true,
-//         user
-//     })
-// })
-// exports.adminUpdateOneUserDetails = BigPromise(async (req,res,next)=>{
-//     const newData = {
-//         name:req.body.name,
-//         email:req.body.email,
-//         role:req.body.role
-//     }
-
-//     const {id} = req.params
-//     const user = await User.findByIdAndUpdate(id,newData,{
-//         new:true,
-//         runValidators:true,
-//         useFindAndModify:false
-//     })
-//     if(!user){
-//         return next(new CustomError('No user found',400))
-//     }
-//     res.status(200).json({
-//         success:true,
-//         user
-//     })
-// })
-
-// exports.adminDeleteOneUser = BigPromise(async (req,res,next)=>{
-//     const {id} = req.params
-//     const user = await User.findById(id)
-//     if(!user){
-//         return next(new CustomError('No user found',401))
-//     }
-//     const imageId = user.photo.id
-//     await cloudinary.v2.uploader.destroy(imageId)
-//     await user.remove()
-//     res.status(200).json({
-//         success:true,
-//         message:"User deleted successfully."
-//     })
-// })
-
-
-
-// exports.managerAllUsers = BigPromise(async (req,res,next)=>{
-//     const user = await User.find({role:'user'})
-//     res.status(200).json({
-//         success:true,
-//         user
-//     })
-// })
